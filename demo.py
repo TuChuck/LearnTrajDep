@@ -13,15 +13,20 @@ from torch.nn import functional
 import numpy as np
 from progress.bar import Bar
 import pandas as pd
+import matplotlib
+# matplotlib.use('tkagg')
+
 from matplotlib import pyplot as plt
 
 from utils import loss_funcs, utils as utils
 from utils.opt import Options
 from utils.h36motion import H36motion
-import utils.model as nnmodel
+import model.model as nnmodel
 import utils.data_utils as data_utils
 import utils.viz as viz
 
+####
+import torch.onnx
 
 def main(opt):
     is_cuda = torch.cuda.is_available()
@@ -30,13 +35,44 @@ def main(opt):
     print(">>> creating model")
     input_n = opt.input_n
     output_n = opt.output_n
+    dct_n = opt.dct_n
+    n_separate = opt.num_separate
     sample_rate = opt.sample_rate
 
-    model = nnmodel.GCN(input_feature=(input_n + output_n), hidden_feature=opt.linear_size, p_dropout=opt.dropout,
-                        num_stage=opt.num_stage, node_n=48)
+    # 48 nodes for angle prediction
+    if opt.model == 'GCN':
+        model = nnmodel.GCN(input_feature=dct_n,
+                                hidden_feature=opt.linear_size, 
+                                p_dropout=opt.dropout,
+                                num_stage=opt.num_stage, 
+                                node_n=48)
+    elif opt.model == 'GCN_Block':
+        model = nnmodel.GCN_Block(input_feature=int(dct_n / n_separate),
+                                hidden_feature=opt.linear_size, 
+                                p_dropout=opt.dropout,
+                                n_separate=opt.num_separate, 
+                                num_stage=opt.num_stage, 
+                                node_n=48)
+    else:
+        model = nnmodel.GCN(input_feature=dct_n,
+                        hidden_feature=opt.linear_size, 
+                        p_dropout=opt.dropout,
+                        num_stage=opt.num_stage, 
+                        node_n=48)
+    ###
+    if opt.model == 'GCN':
+        dummy_data = torch.empty(8,48,dct_n, dtype = torch.float)
+    elif opt.model == 'GCN_Block':
+        dummy_data = []
+        for i in range(n_separate):
+            dummy_data.append(torch.empty(8,48,int(dct_n / 2)))
+    else:
+        dummy_data = torch.empty(8,48,dct_n, dtype = torch.float)
+
+    torch.onnx.export(model,dummy_data,"LTD.onnx")
     if is_cuda:
         model.cuda()
-    model_path_len = './checkpoint/pretrained/h36m_in10_out25.pth.tar'
+    model_path_len = './checkpoint/pretrained/h36m_in10_out10_dctn20.pth.tar'
     print(">>> loading ckpt len from '{}'".format(model_path_len))
     if is_cuda:
         ckpt = torch.load(model_path_len)
@@ -98,5 +134,5 @@ def main(opt):
 
 
 if __name__ == "__main__":
-    option = Options().parse()
+    option = Options(is_demo=True).parse()
     main(option)

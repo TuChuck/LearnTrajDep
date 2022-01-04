@@ -31,3 +31,8 @@ def save_ckpt(state, ckpt_path, is_best=True, file_name=['ckpt_best.pth.tar', 'c
     if is_best:
         file_path = os.path.join(ckpt_path, file_name[0])
         torch.save(state, file_path)
+
+def create_dir_tree(base_dir):
+    dir_tree = ['tf_logs','config']
+    for dir_ in dir_tree:
+        os.makedirs(os.path.join(base_dir,dir_), exist_ok=True)

@@ -301,6 +301,9 @@ def define_actions(action):
     if action == "all_srnn":
         return ["walking", "eating", "smoking", "discussion"]
 
+    if action == "walking":
+        return ["walking"]
+
     raise (ValueError, "Unrecognized action: %d" % action)
 
 
@@ -474,8 +477,8 @@ def rotmat2euler_torch(R):
     """
     n = R.data.shape[0]
     eul = Variable(torch.zeros(n, 3).float()).cuda()
-    idx_spec1 = (R[:, 0, 2] == 1).nonzero().cpu().data.numpy().reshape(-1).tolist()
-    idx_spec2 = (R[:, 0, 2] == -1).nonzero().cpu().data.numpy().reshape(-1).tolist()
+    idx_spec1 = (R[:, 0, 2] == 1).nonzero(as_tuple=False).cpu().data.numpy().reshape(-1).tolist()
+    idx_spec2 = (R[:, 0, 2] == -1).nonzero(as_tuple=False).cpu().data.numpy().reshape(-1).tolist()
     if len(idx_spec1) > 0:
         R_spec1 = R[idx_spec1, :, :]
         eul_spec1 = Variable(torch.zeros(len(idx_spec1), 3).float()).cuda()
@@ -821,6 +824,23 @@ def find_indices_srnn(frame_num1, frame_num2, seq_len, input_n=10):
             idxo2 = np.vstack((idxo2, idxs2))
     return idxo1, idxo2
 
+def data_separation_fn(inputs, n_separate):
+    ## first step ## 
+    ## divide input sequence according to separated factor 
+
+    bs, n_feature, n_seq = inputs.shape
+
+    x_ = [] # x list
+    sepd = int(n_seq / n_separate) # separated factor
+    st = 0  
+    for i in range(1,n_separate+1):
+        bd = sepd*i 
+        if n_seq - bd < sepd:
+            bd = n_seq
+        x_.append(inputs[:,:,st:bd])
+        st = bd
+    
+    return x_
 
 if __name__ == "__main__":
     r = np.random.rand(2, 3) * 10
